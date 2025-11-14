@@ -1,32 +1,41 @@
 services:
-    nats:
-        image: nats:latest
-        ports:
-            - 4222:4222
-            - 6222:6222
-            - 8222:8222
-        environment:
-            - NATS_CLUSTER_BOOTSTRAP=1
-        command: "--cluster_name NATS --cluster nats://0.0.0.0:6222 --http_port 8222 --user ${NATS_USER} --pass ${NATS_PASSWORD}"
-        networks: ["nats-network"]
-        restart: unless-stopped
-    nats-2:
-        image: nats:latest
-        environment:
-            - NATS_CLUSTER_BOOTSTRAP=1
-        command: "--cluster_name NATS --cluster nats://0.0.0.0:6222 --routes=nats://${NATS_USER}:${NATS_PASSWORD}@nats:6222"
-        networks: ["nats-network"]
-        depends_on: ["nats"]
-        restart: unless-stopped
-    nats-3:
-        image: nats:latest
-        environment:
-            - NATS_CLUSTER_BOOTSTRAP=1
-        command: "--cluster_name NATS --cluster nats://0.0.0.0:6222 --routes=nats://${NATS_USER}:${NATS_PASSWORD}@nats:6222"
-        networks: ["nats-network"]
-        depends_on: ["nats"]
-        restart: unless-stopped
+  nats:
+    image: myelophone/nats:latest
+    build: .
+    ports:
+      - 4222:4222
+      - 6222:6222
+      - 8222:8222
+    command: "--cluster_name NATS --cluster nats://0.0.0.0:6222 --http_port 8222 --user ${NATS_USER} --pass ${NATS_PASSWORD} --jetstream --store_dir=/data/jetstream --server_name nats1 --routes=nats://${NATS_USER}:${NATS_PASSWORD}@nats2:6223,nats://${NATS_USER}:${NATS_PASSWORD}@nats3:6224"
+    networks: ["nats-network"]
+    restart: unless-stopped
+    volumes:
+      - ./.data/nats1:/data/jetstream
+  nats2:
+    image: myelophone/nats:latest
+    ports:
+      - 4223:4222
+      - 6223:6223
+      - 8223:8222
+    command: "--cluster_name NATS --cluster nats://0.0.0.0:6223 --routes=nats://${NATS_USER}:${NATS_PASSWORD}@nats:6222,nats://${NATS_USER}:${NATS_PASSWORD}@nats3:6224 --jetstream --store_dir=/data/jetstream --server_name nats2"
+    networks: ["nats-network"]
+    depends_on: ["nats"]
+    restart: unless-stopped
+    volumes:
+      - ./.data/nats2:/data/jetstream
+  nats3:
+    image: myelophone/nats:latest
+    ports:
+      - 4224:4222
+      - 6224:6224
+      - 8224:8222
+    command: "--cluster_name NATS --cluster nats://0.0.0.0:6224 --routes=nats://${NATS_USER}:${NATS_PASSWORD}@nats:6222,nats://${NATS_USER}:${NATS_PASSWORD}@nats2:6223 --jetstream --store_dir=/data/jetstream --server_name nats3"
+    networks: ["nats-network"]
+    depends_on: ["nats"]
+    restart: unless-stopped
+    volumes:
+      - ./.data/nats3:/data/jetstream
 
 networks:
-    nats-network:
-        name: nats-network
+  nats-network:
+    name: nats-network
